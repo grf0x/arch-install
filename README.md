@@ -5,7 +5,7 @@ I wanted a simple script that only requires entering a master password. The abil
 ## Installation 
 From archiso:
 ``` bash
-loadkeys fr # Switch to french keyboard (optional)
+loadkeys fr
 mount --mkdir /dev/sdX arch
 bash arch/install profile_name
 ```
