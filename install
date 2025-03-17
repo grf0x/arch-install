@@ -60,17 +60,17 @@ fi
 umount -lf /dev/${disk}* /dev/mapper/root 2> /dev/null || true
 cryptsetup close root 2> /dev/null || true
 if $CF_SECURE_WIPE; then
-    echo "Writing random values on /dev/$disk..."
+	echo "Writing random values on /dev/$disk..."
 	dd if=/dev/urandom of=/dev/$disk bs=1M status=progress 
 else
-    echo "Deleting partition table of /dev/$disk..."
+	echo "Deleting partition table of /dev/$disk..."
 	sgdisk -Z /dev/$disk
 fi
 
 # Partitioning
 echo "Partitioning..."
 if [[ $disk =~ nvme ]]; then
-    PREFIX="p"
+	PREFIX="p"
 else
 	PREFIX=""
 fi
