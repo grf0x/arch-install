@@ -1,0 +1,15 @@
+#!/bin/bash
+
+CF_HOSTNAME="mycomputer"
+CF_USERNAME="toto"
+CF_DISK="/dev/sda" # auto = select the largest disk  
+CF_SECURE_WIPE=false
+CF_SWAP_SIZE="ram / 2"
+CF_KEYMAP="fr"
+CF_LANG="en_US.UTF-8"
+CF_LOCALE="en_US.UTF-8 UTF-8"
+CF_TIMEZONE="Europe/Paris"
+CF_USE_WIFI=true
+CF_WIFI_SSID=$(decrypt wifi-ssid.gpg)
+CF_WIFI_PASSWORD=$(decrypt wifi-password.gpg)
+CF_MINIMAL_INSTALL=false

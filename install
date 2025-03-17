@@ -1,0 +1,172 @@
+#!/bin/bash
+
+set -eo pipefail
+export -f
+cd $(dirname $(readlink -f $0))
+
+#####################
+### CHECK PROFILE ###
+#####################
+
+if [[ -z "$1" ]]; then
+	echo "Usage: install profile_name"
+	exit 1
+elif ! [[ -d "profiles/$1" ]]; then
+	echo "Profile \"$1\" does not exist"
+	exit 1
+fi 
+
+CF_PROFILE=$1
+
+##############################
+### PROMPT MASTER PASSWORD ###
+##############################
+
+read -s -p "Enter the master password: " master_password
+echo
+
+decrypt() { 
+	gpg --batch --passphrase="$master_password" -q -d profiles/$CF_PROFILE/crypto/$1 
+}
+
+if ! decrypt login.gpg > /dev/null 2>&1; then
+	echo "Wrong password"
+	exit 1
+fi
+
+source profiles/$CF_PROFILE/system
+
+#######################
+### MINIMAL INSTALL ###
+#######################
+
+# Connect to internet
+if $CF_USE_WIFI; then
+	iwctl --passphrase $CF_WIFI_PASSWORD station wlan0 connect $CF_WIFI_SSID
+else
+	ping -c 1 -W 3 archlinux.org > /dev/null
+fi
+echo "Connected to internet"
+
+# Select the disk
+largest_disk=$(lsblk -dpno NAME,SIZE | sort -k2 -h | tail -n 1 | awk "{print $1}")
+if [[ "$CF_DISK" == "auto" ]]; then
+    disk=$(basename $largest_disk)
+else
+	disk=$(basename $CF_DISK)
+fi
+
+# Wipe the disk
+umount -lf /dev/${disk}* /dev/mapper/root 2> /dev/null || true
+cryptsetup close root 2> /dev/null || true
+if $CF_SECURE_WIPE; then
+    echo "Writing random values on /dev/$disk..."
+	dd if=/dev/urandom of=/dev/$disk bs=1M status=progress 
+else
+    echo "Deleting partition table of /dev/$disk..."
+	sgdisk -Z /dev/$disk
+fi
+
+# Partitioning
+echo "Partitioning..."
+if [[ $disk =~ nvme ]]; then
+    PREFIX="p"
+else
+	PREFIX=""
+fi
+sgdisk -n 1:0:+1G -t 1:ef00 /dev/$disk
+sgdisk -n 2:0:0 -t 2:8300 /dev/$disk
+echo $master_password | cryptsetup luksFormat --batch-mode --type luks2 /dev/${disk}${PREFIX}2
+echo $master_password | cryptsetup open /dev/${disk}${PREFIX}2 root
+mkfs.ext4 /dev/mapper/root
+mount /dev/mapper/root /mnt
+mkfs.fat -F32 /dev/${disk}${PREFIX}1
+mount --mkdir /dev/${disk}${PREFIX}1 /mnt/boot
+echo "Partitioning done"
+
+# Install base sytem
+pacstrap /mnt base base-devel linux linux-firmware systemd sudo gvim zsh 
+genfstab -U /mnt >> /mnt/etc/fstab
+echo "Base system installed"
+
+# Swap configuration
+pacstrap /mnt zram-generator
+echo "[zram0]
+zram-size = $CF_SWAP_SIZE
+compression-algorithm = zstd
+fs-type = swap" > /mnt/etc/systemd/zram-generator.conf
+echo "Swap configuration done"
+
+# Host configuration
+echo $CF_HOSTNAME > /mnt/etc/hostname
+echo $CF_LOCALE > /mnt/etc/locale.gen
+arch-chroot /mnt locale-gen
+echo "LANG=$CF_LANG" > /mnt/etc/locale.conf
+echo "KEYMAP=$CF_KEYMAP" > /mnt/etc/vconsole.conf
+arch-chroot /mnt ln -sf /usr/share/zoneinfo/$CF_TIMEZONE /etc/localtime
+arch-chroot /mnt hwclock --systohc
+arch-chroot /mnt systemctl enable systemd-timesyncd
+echo "Host configuration done"
+
+# User configuration
+arch-chroot /mnt useradd -m -G wheel -s /bin/zsh $CF_USERNAME
+echo "$CF_USERNAME:$master_password" | arch-chroot /mnt chpasswd
+sed -i "s/^# %wheel ALL=(ALL:ALL) ALL/%wheel ALL=(ALL:ALL) ALL/" /mnt/etc/sudoers
+rm -rf /mnt/home/$CF_USERNAME/.bash*
+echo "User configuration done"
+
+# Autologin
+mkdir /mnt/etc/systemd/system/getty@tty1.service.d
+echo "[Service]
+ExecStart=
+ExecStart=-/usr/bin/agetty --noclear --autologin $CF_USERNAME %I \$TERM" > /mnt/etc/systemd/system/getty@tty1.service.d/override.conf
+echo "Autologin configuration done"
+
+# Initramfs configuration
+sed -i "s/^HOOKS=.*/HOOKS=(base udev autodetect microcode modconf kms keyboard keymap consolefont block encrypt filesystems fsck)/" /mnt/etc/mkinitcpio.conf
+arch-chroot /mnt mkinitcpio -P
+echo "Initramfs configuration done"
+
+# Boot loader configuration
+arch-chroot /mnt bootctl install
+CRYPT_UUID=$(blkid -s UUID -o value /dev/${disk}${PREFIX}2)
+echo "title Arch Linux
+linux /vmlinuz-linux
+initrd /initramfs-linux.img
+options cryptdevice=UUID=$CRYPT_UUID:root root=/dev/mapper/root zswap.enabled=0 rw rootfstype=ext4" > /mnt/boot/loader/entries/arch.conf
+echo "default arch
+timeout 0
+editor no" > /mnt/boot/loader/loader.conf
+echo "Boot loader configuration done"
+
+# Newtork configuration
+pacstrap /mnt dhcpcd iwd
+cp -a /var/lib/iwd /mnt/var/lib/
+arch-chroot /mnt systemctl enable dhcpcd iwd
+echo "Network configuration done"
+
+# Bluetooth configuration
+pacstrap /mnt bluez bluez-utils 
+arch-chroot /mnt systemctl enable bluetooth
+echo "Bluetooth configuration done"
+
+# Audio Configuration
+pacstrap /mnt pipewire pipewire-pulse pipewire-alsa pipewire-jack gst-plugin-pipewire libpulse wireplumber
+arch-chroot /mnt systemctl --user -M $CF_USERNAME@ enable pipewire wireplumber
+echo "Audio configuration done"
+
+# Minimal system installed
+if $CF_MINIMAL_INSTALL; then
+	touch /mnt/home/$CF_USERNAME/.zshrc
+	arch-chroot /mnt chown -R $CF_USERNAME:$CF_USERNAME /home/$CF_USERNAME
+	arch-chroot /mnt chmod -R 700 /home/$CF_USERNAME
+	reboot
+fi
+
+######################
+### CUSTOM INSTALL ###
+######################
+
+
+
+
