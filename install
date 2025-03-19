@@ -48,7 +48,7 @@ echo "Connected to internet"
 # Select the disk
 largest_disk=$(lsblk -dpno NAME,SIZE | sort -k2 -h | tail -n1 | awk '{print $1}')
 if [[ "$CF_DISK" == "auto" ]]; then
-    disk=$(basename $largest_disk)
+	disk=$(basename $largest_disk)
 else
 	disk=$(basename $CF_DISK)
 fi

@@ -6,6 +6,6 @@ Just another custom installation script for Arch Linux that suits my needs.
 From archiso:
 ``` bash
 loadkeys fr
-mount --mkdir /dev/sdX arch
+mount --mkdir /dev/sdb3 arch
 bash arch/install profile_name
 ```
