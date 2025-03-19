@@ -191,18 +191,18 @@ if [[ -f $CF_SERVICES && -s $CF_SERVICES ]]; then
 	arch-chroot /mnt systemctl enable $(paste -s $CF_SERVICES)
 fi
 
-# Git 
-CF_GIT="profiles/$CF_PROFILE/git"
-if [[ -f $CF_GIT && -s $CF_GIT ]]; then
+# Repos 
+CF_REPOS="profiles/$CF_PROFILE/repositories"
+if [[ -f $CF_REPOS && -s $CF_REPOS ]]; then
 	echo "Installing repos..."
 	arch-chroot /mnt su - $CF_USERNAME -c mkdir -p ~/$CF_GIT_WORKING_DIR || true
 	while read repo; do
 		local_repo=$(basename $repo)
-		if [[ $(grep -o "\b/$(basename $repo)\b" $CF_GIT | wc -l) -gt 1 ]]; then 
+		if [[ $(grep -o "\b/$(basename $repo)\b" $CF_REPOS | wc -l) -gt 1 ]]; then 
 			local_repo+="_$(dirname $repo)"
 		fi
 		arch-chroot /mnt su - $CF_USERNAME -c "git clone git@github.com:$repo.git ~/$CF_GIT_WORKING_DIR/$local_repo"
-	done < $CF_GIT
+	done < $CF_REPOS
 fi
 
 # Full system installed
