@@ -1,6 +1,6 @@
-# My Arch Linux Installation Script  
+# Arch Installation Script  
 
-I wanted an Arch installation script that only requires entering a master password. The ability to create profiles allows me to tailor the installation to my needs.
+Just another custom installation script for Arch Linux that suits my needs.
 
 ## Installation 
 From archiso:
