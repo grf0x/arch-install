@@ -201,7 +201,7 @@ if [[ -f $CF_REPOS && -s $CF_REPOS ]]; then
 		if [[ $(grep -o "\b/$(basename $repo)\b" $CF_REPOS | wc -l) -gt 1 ]]; then 
 			local_repo+="_$(dirname $repo)"
 		fi
-		arch-chroot /mnt su - $CF_USERNAME -c "git clone git@github.com:$repo.git ~/$CF_GIT_WORKING_DIR/$local_repo"
+		arch-chroot /mnt su - $CF_USERNAME -c "git clone https://oauth2:$(decrypt gh-token.gpg)@github.com/$repo.git ~/$CF_GIT_WORKING_DIR/$local_repo"
 	done < $CF_REPOS
 fi
 
