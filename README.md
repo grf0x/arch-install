@@ -1,6 +1,6 @@
 # Arch Installation Script  
 
-Just another custom installation script for Arch Linux that suits my needs.
+My installation script for Arch Linux. Only one password entry is needed to start the installation. Possibility to create multiple profiles based on needs.
 
 ## Installation 
 
