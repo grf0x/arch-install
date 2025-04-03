@@ -12,5 +12,4 @@ CF_TIMEZONE="Europe/Paris"
 CF_USE_WIFI=true
 CF_WIFI_SSID=$(decrypt wifi-ssid.gpg)
 CF_WIFI_PASSWORD=$(decrypt wifi-password.gpg)
-CF_GIT_WORKING_DIR="git"
 CF_MINIMAL_INSTALL=false

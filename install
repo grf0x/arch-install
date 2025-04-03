@@ -33,9 +33,9 @@ fi
 
 source profiles/$CF_PROFILE/system
 
-#######################
-### MINIMAL INSTALL ###
-#######################
+###############
+### INSTALL ###
+###############
 
 # Connect to internet
 if $CF_USE_WIFI; then
@@ -147,65 +147,20 @@ pacstrap /mnt bluez bluez-utils
 arch-chroot /mnt systemctl enable bluetooth
 echo "Bluetooth configuration done"
 
-# Audio Configuration
-pacstrap /mnt pipewire pipewire-pulse pipewire-alsa pipewire-jack gst-plugin-pipewire libpulse wireplumber
+# Audio configuration
 arch-chroot /mnt systemctl --user -M $CF_USERNAME@ enable pipewire wireplumber
 echo "Audio configuration done"
 
-# Minimal system installed
+# Install profile
 if $CF_MINIMAL_INSTALL; then
 	touch /mnt/home/$CF_USERNAME/.zshrc
-	arch-chroot /mnt chown -R $CF_USERNAME:$CF_USERNAME /home/$CF_USERNAME
-	arch-chroot /mnt chmod -R 700 /home/$CF_USERNAME
-	reboot
+else
+	source profiles/$CF_PROFILE/install 
 fi
 
-####################
-### FULL INSTALL ###
-####################
-
-# Home
-CF_HOME="profiles/$CF_PROFILE/home"
-if [[ -f $CF_HOME && -s $CF_HOME ]]; then
-	echo "Creating home directory..."
-	arch-chroot /mnt cd /mnt/home/$CF_USERNAME && mkdir -p $(paste -s $CF_HOME)
-fi
-
-# Dotfiles
-echo "Intalling dofiles..."
-decrypt dots.tar.xz.gpg | tar xJf - --strip-components=1 -C /mnt/home/$CF_USERNAME
-
-# Pacman
-arch-chroot /mnt pacman-key --init && sudo pacman-key --populate archlinux
-arch-chroot /mnt pacman -Syu
-CF_PACMAN="profiles/$CF_PROFILE/pacman"
-if [[ -f $CF_PACMAN && -s $CF_PACMAN ]]; then
-	echo "Installing packages..."
-	arch-chroot /mnt pacman -S --noconfirm $(paste -s $CF_PACMAN)
-fi
-
-# Services
-CF_SERVICES="profiles/$CF_PROFILE/services"
-if [[ -f $CF_SERVICES && -s $CF_SERVICES ]]; then
-	echo "enabling services..."
-	arch-chroot /mnt systemctl enable $(paste -s $CF_SERVICES)
-fi
-
-# Repos 
-CF_REPOS="profiles/$CF_PROFILE/repositories"
-if [[ -f $CF_REPOS && -s $CF_REPOS ]]; then
-	echo "Installing repos..."
-	arch-chroot /mnt su - $CF_USERNAME -c mkdir -p ~/$CF_GIT_WORKING_DIR || true
-	while read repo; do
-		local_repo=$(basename $repo)
-		if [[ $(grep -o "\b/$(basename $repo)\b" $CF_REPOS | wc -l) -gt 1 ]]; then 
-			local_repo+="_$(dirname $repo)"
-		fi
-		arch-chroot /mnt su - $CF_USERNAME -c "git clone https://oauth2:$(decrypt gh-token.gpg)@github.com/$repo.git ~/$CF_GIT_WORKING_DIR/$local_repo"
-	done < $CF_REPOS
-fi
-
-# Full system installed
+# Permissions
 arch-chroot /mnt chown -R $CF_USERNAME:$CF_USERNAME /home/$CF_USERNAME
 arch-chroot /mnt chmod -R 700 /home/$CF_USERNAME
+
+# Full system installed
 reboot
